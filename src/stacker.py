@@ -1,6 +1,11 @@
 import sys
 import unittest
 
+def custom_error(message, passive=False):
+    print(message)
+    if not passive:
+        sys.exit()        
+
 class Object:
     def __init__(self, v, n):
         self.value = v
@@ -16,6 +21,7 @@ class Instruction:
 def read_file(file_name):
     f = open(file_name)
     text = f.read()
+    f.close()
     return text.splitlines()    
 
 class VM:
@@ -23,7 +29,7 @@ class VM:
         # stack memory, stacker is a single stack vm
         self.inner_stack = []
         # tos is the top of the stack
-        self.tos = "end"
+        self.tos = None
         # memory structure for objects
         self.heap = []
         # the instruction stack
@@ -34,12 +40,14 @@ class VM:
     # pops the top of the stack 
     def pop(self):
         rval = self.tos
-        self.tos = self.inner_stack.pop(0)
+        if len(self.inner_stack) > 0:
+            self.tos = self.inner_stack.pop(0)
         return rval
     
     # pushes a value to the top of the stack
     def push(self, value):
-        self.inner_stack.insert(0, self.tos)
+        if self.tos != None:
+            self.inner_stack.insert(0, self.tos)
         self.tos = value
     
     # removes n1 the tos and brings n2 as the new tos
@@ -184,8 +192,12 @@ class VM:
             sys.exit()
         elif op == "print":
             self.stack_print()
+        elif op == "store":
+            self.store(instr.parameters[0])
+        elif op == "fetch":
+            self.store(instr.parameters[0])
         else:
-            sys.stderr("Unknown operation ", op, )
+            custom_error("Unknown operation " + op)
         return self.execute()
         
     # if tos >= 1 execute the next instruction otherwise skip it
@@ -201,9 +213,82 @@ class VM:
             tokens = line.split(" ")
             instruction = ""
             if len(tokens) > 1:
-                instruction = Instruction(tokens.pop(0), [token for token in tokens])
+                instruction = Instruction(tokens.pop(0), [])
+                for token in tokens:
+                    if token[0] in ["'", '"'] and token[-1] in ["'", '"']:
+                        instruction.parameters.append(token)
+                    elif token[0].isdigit():
+                        is_float = False
+                        for char in token:
+                            if not char.isdigit():
+                                if char == ".":
+                                    is_float = True
+                                else:
+                                    custom_error("Token of unkown type " + token)
+                        r_token = None
+                        if is_float:
+                            r_token = float(token)
+                        else:
+                            r_token = int(token)
+                        instruction.parameters.append(r_token)
+                    else:
+                        custom_error("Token of unkown type " + token)
             else:
                 instruction = Instruction(tokens[0])
-            print(instruction.operation)
             instructions.append(instruction)
         self.instruction_stack = instructions
+
+    def execute_debug(self):
+        print("STACK")
+        print(self.inner_stack)
+        print("TOS")
+        print(self.tos)
+        print("HEAP")
+        print(self.heap)
+        self.program_counter += 1
+        print("Current instruction")
+        print(self.instruction_stack[self.program_counter].operation)
+        instr: Instruction = self.instruction_stack[self.program_counter]
+        op = instr.operation
+        if op == "add":
+            self.add()
+        elif instr.operation == "sub":
+            self.sub()
+        elif op == "mult":
+            self.mult()
+        elif op == "div":
+            self.div()
+        elif op == "gthan":
+            self.gthan()
+        elif op == "lthan":
+            self.lthan()
+        elif op == "gthanoeq":
+            self.gthanoeq()
+        elif op == "lthanoeq":
+            self.lthanoeq()
+        elif op == "push":
+            self.push(instr.parameters[0])
+        elif op == "drop":
+            self.drop()
+        elif op == "swap":
+            self.swap()
+        elif op == "over":
+            self.over()
+        elif op == "eq":
+            self.eq()
+        elif op == "pop":
+            self.pop()
+        elif op == "if":
+            self.stack_if()
+        elif op == "end":
+            sys.exit()
+        elif op == "print":
+            self.stack_print()
+        elif op == "store":
+            self.store(instr.parameters[0])
+        elif op == "fetch":
+            self.store(instr.parameters[0])
+        else:
+            custom_error("Unknown operation " + op)
+        return self.execute_debug()
+
