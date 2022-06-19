@@ -1,7 +1,5 @@
 push 1
-push 2
-add
-store "test"
-fetch "test"
+store test
+load test
 print
 end

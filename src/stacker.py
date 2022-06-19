@@ -1,5 +1,5 @@
 import sys
-import unittest
+import time
 
 def custom_error(message, passive=False):
     print(message)
@@ -211,11 +211,15 @@ class VM:
         instructions = []
         for line in lines:
             tokens = line.split(" ")
-            instruction = ""
+            instruction = None
             if len(tokens) > 1:
                 instruction = Instruction(tokens.pop(0), [])
                 for token in tokens:
-                    if token[0] in ["'", '"'] and token[-1] in ["'", '"']:
+                    if instruction.operation == "load" or instruction.operation == "store":
+                        instruction.parameters.append(token)
+                    elif token[0] in ["'", '"'] and token[-1] in ["'", '"']:
+                        token = token.replace('"', "")
+                        token = token.replace("'", "")
                         instruction.parameters.append(token)
                     elif token[0].isdigit():
                         is_float = False
@@ -292,3 +296,9 @@ class VM:
             custom_error("Unknown operation " + op)
         return self.execute_debug()
 
+start = time.time()
+vm = VM()
+vm.parse_file("./test.bc")
+vm.execute()
+end = time.time()
+print(end - start)
